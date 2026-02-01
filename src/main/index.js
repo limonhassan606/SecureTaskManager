@@ -1,10 +1,112 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell, dialog } = require('electron');
 const path = require('path');
 const processMonitor = require('./processMonitor');
 const virusTotal = require('./virusTotal');
 const database = require('./database');
 
 let mainWindow;
+
+function createMenu() {
+  const isMac = process.platform === 'darwin';
+
+  const template = [
+    // File Menu
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Settings',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.executeJavaScript('openSettings();');
+            }
+          }
+        },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    // View Menu
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    // Window Menu
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac ? [
+          { type: 'separator' },
+          { role: 'front' },
+          { type: 'separator' },
+          { role: 'window' }
+        ] : [
+          { role: 'close' }
+        ])
+      ]
+    },
+    // Help Menu
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Documentation',
+          click: async () => {
+            await shell.openExternal('https://github.com/limonhassan606/SecureTaskManager#readme');
+          }
+        },
+        {
+          label: 'Report Issue',
+          click: async () => {
+            await shell.openExternal('https://github.com/limonhassan606/SecureTaskManager/issues');
+          }
+        },
+        {
+          label: 'GitHub Repository',
+          click: async () => {
+            await shell.openExternal('https://github.com/limonhassan606/SecureTaskManager');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates...',
+          click: async () => {
+            await shell.openExternal('https://github.com/limonhassan606/SecureTaskManager/releases');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'About SecureTask Manager',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'About',
+              message: 'SecureTask Manager',
+              detail: 'Version 1.0.0\n\nA security-focused process manager with VirusTotal integration.\n\nDeveloped by Limon Hassan.',
+              buttons: ['OK'],
+              icon: path.join(__dirname, '../../assets/icon.png')
+            });
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -38,6 +140,8 @@ function createWindow() {
 app.whenReady().then(async () => {
   await database.initialize();
   await virusTotal.initialize();
+
+  createMenu(); // Initialize the native menu
   createWindow();
 
   app.on('activate', () => {

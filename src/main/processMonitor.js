@@ -43,35 +43,9 @@ class ProcessMonitor {
     }
 
     /**
-     * Update hash for a specific file path
+     * Update hash for a specific file path - Moved below to fix ordering/duplication
      */
-    async updateFileHash(filePath) {
-        try {
-            // Check if file exists and get stats
-            const stats = await fs.stat(filePath);
-            const mtime = stats.mtimeMs;
-
-            // Check if we already have a valid cache
-            const cached = this.hashCache.get(filePath);
-            if (cached && cached.mtime === mtime) {
-                return cached.hash;
-            }
-
-            // Calculate new hash
-            const hash = await this.calculateFileHash(filePath);
-
-            if (hash) {
-                this.hashCache.set(filePath, {
-                    hash,
-                    mtime
-                });
-            }
-
-            return hash;
-        } catch (error) {
-            return null;
-        }
-    }
+    // Method moved below
 
     /**
      * Get list of all running processes with detailed information

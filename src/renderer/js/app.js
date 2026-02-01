@@ -58,7 +58,19 @@ function setupEventListeners() {
   // Refresh buttons
   document.getElementById('refresh-btn').addEventListener('click', refreshProcesses);
   document.getElementById('refresh-processes-btn').addEventListener('click', refreshProcesses);
-  document.getElementById('scan-all-btn').addEventListener('click', scanAllProcesses);
+  document.getElementById('scan-all-btn').addEventListener('click', () => scanAllProcesses(false));
+  document.getElementById('scan-new-btn').addEventListener('click', () => scanAllProcesses(true));
+
+  // Help/Update buttons
+  document.getElementById('check-updates-btn').addEventListener('click', () => {
+    // Open GitHub releases page
+    window.open('https://github.com/limonhassan606/SecureTaskManager/releases', '_blank');
+  });
+
+  document.getElementById('repo-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    window.open('https://github.com/limonhassan606/SecureTaskManager', '_blank');
+  });
 
   // Search
   document.getElementById('search-input').addEventListener('input', handleSearch);
@@ -288,14 +300,17 @@ function updateProcessTable() {
       </td>
       <td>
         <div class="process-name">${escapeHtml(proc.name)}</div>
-        ${!proc.hash ? '<div class="process-subtitle">Calculating hash...</div>' : ''}
+        ${proc.hash ? '' :
+      (proc.hashError ? `<div class="process-subtitle" style="color:var(--status-unknown);">${escapeHtml(proc.hashError)}</div>` :
+        '<div class="process-subtitle">Calculating hash...</div>')
+    }
       </td>
       <td>${proc.pid}</td>
       <td>${proc.cpu.toFixed(1)}%</td>
       <td>${proc.memMB} MB</td>
       <td title="${escapeHtml(proc.path)}">${truncatePath(proc.path)}</td>
       <td>
-        <button class="table-action-btn" onclick="scanProcess(${proc.pid})" ${!proc.hash ? 'disabled style="opacity: 0.5; cursor: not-allowed;" title="Wait for hash calculation"' : ''}>
+        <button class="table-action-btn" onclick="scanProcess(${proc.pid})" ${!proc.hash ? 'disabled style="opacity: 0.5; cursor: not-allowed;" title="Cannot scan: No file hash available"' : ''}>
           Scan
         </button>
         <button class="table-action-btn" onclick="viewProcessDetails(${proc.pid})">
@@ -373,17 +388,30 @@ async function scanProcess(pid) {
   }
 }
 
-async function scanAllProcesses() {
-  if (!confirm('This will scan all running processes that have calculated hashes. Continue?')) {
+async function scanAllProcesses(onlyNew = false) {
+  const confirmationMsg = onlyNew
+    ? 'This will scan only processes that have not been scanned yet (and have a hash). Continue?'
+    : 'This will scan ALL running processes that have calculated hashes, potentially re-scanning known files. Continue?';
+
+  if (!confirm(confirmationMsg)) {
     return;
   }
 
-  const processesToScan = state.processes.filter(p =>
-    p.hash &&
-    (!p.scanStatus || p.scanStatus === 'not_scanned')
-  );
+  // Filter for processes that have a hash
+  // If onlyNew is true, strictly require 'not_scanned' status (or undefined)
+  // If onlyNew is false, we scan everything that has a hash, even if already scanned (re-scan)
+  const processesToScan = state.processes.filter(p => {
+    if (!p.hash) return false;
+
+    if (onlyNew) {
+      return !p.scanStatus || p.scanStatus === 'not_scanned';
+    }
+
+    return true;
+  });
 
   const pendingHashCount = state.processes.filter(p => !p.hash).length;
+
 
   if (processesToScan.length === 0) {
     if (pendingHashCount > 0) {

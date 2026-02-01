@@ -85,288 +85,401 @@
       </svg>
       History
     </button>
+    <button class="tab-btn" data-tab="help">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+        <path
+          d="M9.09 9C9.3251 8.33167 9.78915 7.76811 10.4 7.40913C11.0108 7.05016 11.7289 6.91894 12.4272 7.03871C13.1255 7.15849 13.7588 7.52152 14.2151 8.06353C14.6713 8.60553 14.9211 9.29152 14.92 10C14.92 12 11.92 13 11.92 13"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M12 17H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Help & About
+    </button>
   </nav>
 
   <!-- Main Content -->
   <main class="main-content">
     <!-- Dashboard Tab -->
-    <section id="dashboard-tab" class="tab-content active">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon safe">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.85999"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M22 4L12 14.01L9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
+    <!-- ... (existing content) ... -->
+    <!-- (Skipping existing tabs for brevity in replacement, but I must match the start/end correctly to insert) -->
+    <!-- Actually, I need to insert the HELP SECTION at the end of main, and the BUTTON in the nav. 
+         I will do this in two chunks or one large chunk if I verify context. 
+         Wait, replacing standard `nav-tabs` block is easy. 
+         Then appending the `help-tab` section before `</main>`.
+         The prompt implies I can replace multiple chunks? No, "Use this tool ONLY when you are making a SINGLE CONTIGUOUS block of edits".
+         I should use `multi_replace_file_content` or just do it in one go if I can encompass everything? 
+         Nav and End of Main are far apart. I should use `multi_replace_file_content`.
+    -->
+
+    <!-- Oh, I am using `replace_file_content` in the tool definition. 
+         I will use `multi_replace_file_content`. -->
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Dashboard Tab -->
+      <section id="dashboard-tab" class="tab-content active">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon safe">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.85999"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M22 4L12 14.01L9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-title">Safe Processes</h3>
+              <p class="stat-number" id="safe-count">0</p>
+            </div>
           </div>
-          <div class="stat-info">
-            <h3 class="stat-title">Safe Processes</h3>
-            <p class="stat-number" id="safe-count">0</p>
+
+          <div class="stat-card">
+            <div class="stat-icon suspicious">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-title">Suspicious</h3>
+              <p class="stat-number" id="suspicious-count">0</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon malicious">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-title">Malicious</h3>
+              <p class="stat-number" id="malicious-count">0</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon unknown">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                <path
+                  d="M9.09 9C9.3251 8.33167 9.78915 7.76811 10.4 7.40913C11.0108 7.05016 11.7289 6.91894 12.4272 7.03871C13.1255 7.15849 13.7588 7.52152 14.2151 8.06353C14.6713 8.60553 14.9211 9.29152 14.92 10C14.92 12 11.92 13 11.92 13"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M12 17H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-title">Unknown</h3>
+              <p class="stat-number" id="unknown-count">0</p>
+            </div>
           </div>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-icon suspicious">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+        <div class="dashboard-grid">
+          <div class="card">
+            <h2 class="card-title">System Overview</h2>
+            <div class="system-info">
+              <div class="info-row">
+                <span class="info-label">Total Processes:</span>
+                <span class="info-value" id="total-processes">0</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">CPU Usage:</span>
+                <span class="info-value" id="dashboard-cpu">0%</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Memory Usage:</span>
+                <span class="info-value" id="dashboard-mem">0 GB / 0 GB</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Last Scan:</span>
+                <span class="info-value" id="last-scan">Never</span>
+              </div>
+            </div>
           </div>
-          <div class="stat-info">
-            <h3 class="stat-title">Suspicious</h3>
-            <p class="stat-number" id="suspicious-count">0</p>
+
+          <div class="card">
+            <h2 class="card-title">Quick Actions</h2>
+            <div class="actions-grid">
+              <button class="action-btn" id="scan-new-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 4V20M20 12H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+                Scan New Processes
+              </button>
+              <button class="action-btn" id="scan-all-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Scan All Processes
+              </button>
+              <button class="action-btn" id="refresh-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M1 4V10H7M23 20V14H17M20.49 9C19.9828 7.56678 19.1209 6.28536 17.9845 5.27542C16.8482 4.26548 15.4745 3.55976 13.9917 3.22426C12.5089 2.88875 10.9652 2.93434 9.50481 3.35677C8.04437 3.77921 6.71475 4.56471 5.64 5.64L1 10M23 14L18.36 18.36C17.2853 19.4353 15.9556 20.2208 14.4952 20.6432C13.0348 21.0657 11.4911 21.1112 10.0083 20.7757C8.52547 20.4402 7.1518 19.7345 6.01547 18.7246C4.87913 17.7146 4.01717 16.4332 3.51 15"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Refresh Processes
+              </button>
+            </div>
           </div>
         </div>
+      </section>
 
-        <div class="stat-card">
-          <div class="stat-icon malicious">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-              <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-              <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
-          </div>
-          <div class="stat-info">
-            <h3 class="stat-title">Malicious</h3>
-            <p class="stat-number" id="malicious-count">0</p>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon unknown">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-              <path
-                d="M9.09 9C9.3251 8.33167 9.78915 7.76811 10.4 7.40913C11.0108 7.05016 11.7289 6.91894 12.4272 7.03871C13.1255 7.15849 13.7588 7.52152 14.2151 8.06353C14.6713 8.60553 14.9211 9.29152 14.92 10C14.92 12 11.92 13 11.92 13"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M12 17H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
-          </div>
-          <div class="stat-info">
-            <h3 class="stat-title">Unknown</h3>
-            <p class="stat-number" id="unknown-count">0</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="dashboard-grid">
+      <!-- Processes Tab -->
+      <section id="processes-tab" class="tab-content">
         <div class="card">
-          <h2 class="card-title">System Overview</h2>
-          <div class="system-info">
-            <div class="info-row">
-              <span class="info-label">Total Processes:</span>
-              <span class="info-value" id="total-processes">0</span>
+          <div class="card-header">
+            <h2 class="card-title">Running Processes</h2>
+            <div class="card-actions">
+              <input type="text" id="search-input" class="search-input" placeholder="Search processes...">
+              <button class="btn-primary" id="refresh-processes-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M1 4V10H7M23 20V14H17M20.49 9C19.9828 7.56678 19.1209 6.28536 17.9845 5.27542C16.8482 4.26548 15.4745 3.55976 13.9917 3.22426C12.5089 2.88875 10.9652 2.93434 9.50481 3.35677C8.04437 3.77921 6.71475 4.56471 5.64 5.64L1 10M23 14L18.36 18.36C17.2853 19.4353 15.9556 20.2208 14.4952 20.6432C13.0348 21.0657 11.4911 21.1112 10.0083 20.7757C8.52547 20.4402 7.1518 19.7345 6.01547 18.7246C4.87913 17.7146 4.01717 16.4332 3.51 15"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Refresh
+              </button>
             </div>
-            <div class="info-row">
-              <span class="info-label">CPU Usage:</span>
-              <span class="info-value" id="dashboard-cpu">0%</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Memory Usage:</span>
-              <span class="info-value" id="dashboard-mem">0 GB / 0 GB</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Last Scan:</span>
-              <span class="info-value" id="last-scan">Never</span>
-            </div>
+          </div>
+
+          <!-- Filter Container -->
+          <div class="filter-container">
+            <span class="filter-label">Filter:</span>
+            <select id="filter-select" class="filter-select">
+              <option value="all">All Processes</option>
+              <option value="safe">Safe Only</option>
+              <option value="suspicious">Suspicious/Risky</option>
+              <option value="malicious">Malicious</option>
+              <option value="not_scanned">Not Scanned</option>
+            </select>
+          </div>
+
+          <div class="table-container">
+            <table class="process-table">
+              <thead>
+                <tr>
+                  <th data-sort="status">Status</th>
+                  <th data-sort="name">Process Name</th>
+                  <th data-sort="pid">PID</th>
+                  <th data-sort="cpu">CPU %</th>
+                  <th data-sort="mem">Memory</th>
+                  <th data-sort="path">Path</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="process-table-body">
+                <tr>
+                  <td colspan="7" class="loading-cell">
+                    <div class="loader"></div>
+                    <p>Loading processes...</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
+        <!-- Process Details Modal -->
+        <div id="process-modal" class="modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 id="modal-title">Process Details</h2>
+              <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+              <!-- Dynamic content will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      </section>
+
+      <!-- Queue Tab -->
+      <section id="queue-tab" class="tab-content">
         <div class="card">
-          <h2 class="card-title">Quick Actions</h2>
-          <div class="actions-grid">
-            <button class="action-btn" id="scan-all-btn">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Scan All Processes
-            </button>
-            <button class="action-btn" id="refresh-btn">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M1 4V10H7M23 20V14H17M20.49 9C19.9828 7.56678 19.1209 6.28536 17.9845 5.27542C16.8482 4.26548 15.4745 3.55976 13.9917 3.22426C12.5089 2.88875 10.9652 2.93434 9.50481 3.35677C8.04437 3.77921 6.71475 4.56471 5.64 5.64L1 10M23 14L18.36 18.36C17.2853 19.4353 15.9556 20.2208 14.4952 20.6432C13.0348 21.0657 11.4911 21.1112 10.0083 20.7757C8.52547 20.4402 7.1518 19.7345 6.01547 18.7246C4.87913 17.7146 4.01717 16.4332 3.51 15"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Refresh Processes
-            </button>
+          <h2 class="card-title">Scan Queue</h2>
+          <div class="table-container">
+            <table class="queue-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Process Name</th>
+                  <th>Hash</th>
+                  <th>Added Time</th>
+                </tr>
+              </thead>
+              <tbody id="queue-table-body">
+                <tr>
+                  <td colspan="4" class="loading-cell">
+                    <p>Queue is empty</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Processes Tab -->
-    <section id="processes-tab" class="tab-content">
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Running Processes</h2>
-          <div class="card-actions">
-            <input type="text" id="search-input" class="search-input" placeholder="Search processes...">
-            <button class="btn-primary" id="refresh-processes-btn">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M1 4V10H7M23 20V14H17M20.49 9C19.9828 7.56678 19.1209 6.28536 17.9845 5.27542C16.8482 4.26548 15.4745 3.55976 13.9917 3.22426C12.5089 2.88875 10.9652 2.93434 9.50481 3.35677C8.04437 3.77921 6.71475 4.56471 5.64 5.64L1 10M23 14L18.36 18.36C17.2853 19.4353 15.9556 20.2208 14.4952 20.6432C13.0348 21.0657 11.4911 21.1112 10.0083 20.7757C8.52547 20.4402 7.1518 19.7345 6.01547 18.7246C4.87913 17.7146 4.01717 16.4332 3.51 15"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Refresh
-            </button>
+      <!-- History Tab -->
+      <section id="history-tab" class="tab-content">
+        <div class="card">
+          <h2 class="card-title">Scan History</h2>
+          <div class="table-container">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Process</th>
+                  <th>Hash</th>
+                  <th>Rating</th>
+                  <th>Detections</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body">
+                <tr>
+                  <td colspan="6" class="loading-cell">
+                    <p>No scan history available</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
-        <!-- Filter Container -->
-        <div class="filter-container">
-          <span class="filter-label">Filter:</span>
-          <select id="filter-select" class="filter-select">
-            <option value="all">All Processes</option>
-            <option value="safe">Safe Only</option>
-            <option value="suspicious">Suspicious/Risky</option>
-            <option value="malicious">Malicious</option>
-            <option value="not_scanned">Not Scanned</option>
-          </select>
-        </div>
-
-        <div class="table-container">
-          <table class="process-table">
-            <thead>
-              <tr>
-                <th data-sort="status">Status</th>
-                <th data-sort="name">Process Name</th>
-                <th data-sort="pid">PID</th>
-                <th data-sort="cpu">CPU %</th>
-                <th data-sort="mem">Memory</th>
-                <th data-sort="path">Path</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="process-table-body">
-              <tr>
-                <td colspan="7" class="loading-cell">
-                  <div class="loader"></div>
-                  <p>Loading processes...</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Process Details Modal -->
-      <div id="process-modal" class="modal">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2 id="modal-title">Process Details</h2>
-            <button class="modal-close" id="modal-close-btn">&times;</button>
+      </section>
+      <!-- Help Tab -->
+      <section id="help-tab" class="tab-content">
+        <div class="dashboard-grid">
+          <!-- About Card -->
+          <div class="card">
+            <h2 class="card-title">About SecureTask Manager</h2>
+            <div style="margin-top: 1rem; color: var(--text-secondary); line-height: 1.6;">
+              <p style="margin-bottom: 1rem;">
+                SecureTask Manager is an advanced system utility designed to provide deep visibility into running
+                processes.
+                Unlike standard task managers, it integrates directly with <strong>VirusTotal</strong> to scan process
+                hashes in real-time,
+                giving you immediate insight into the security posture of your system.
+              </p>
+              <p>
+                Key features include:
+              <ul style="margin-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 1rem;">
+                <li>Real-time process monitoring with CPU/Memory stats.</li>
+                <li>Automatic SHA-256 hash calculation for executable files.</li>
+                <li>Cloud-based malware scanning via VirusTotal API.</li>
+                <li>Detection of suspicious or malicious processes.</li>
+                <li>Background queue system for performance optimization.</li>
+              </ul>
+              </p>
+            </div>
           </div>
-          <div class="modal-body" id="modal-body">
-            <!-- Dynamic content will be inserted here -->
-          </div>
-        </div>
-      </div>
-    </section>
 
-    </section>
+          <div class="card">
+            <h2 class="card-title">Developer & Version</h2>
 
-    <!-- Queue Tab -->
-    <section id="queue-tab" class="tab-content">
-      <div class="card">
-        <h2 class="card-title">Scan Queue</h2>
-        <div class="table-container">
-          <table class="queue-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Process Name</th>
-                <th>Hash</th>
-                <th>Added Time</th>
-              </tr>
-            </thead>
-            <tbody id="queue-table-body">
-              <tr>
-                <td colspan="4" class="loading-cell">
-                  <p>Queue is empty</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+            <!-- Version Info -->
+            <div class="system-info" style="margin-bottom: 2rem;">
+              <div class="info-row">
+                <span class="info-label">Version:</span>
+                <span class="info-value">v1.0.0</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Platform:</span>
+                <span class="info-value">Windows (x64)</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Repository:</span>
+                <a href="#" id="repo-link" class="info-value"
+                  style="text-decoration: none; color: var(--accent-primary);">GitHub Repository</a>
+              </div>
+              <div style="margin-top: 1rem;">
+                <button class="btn-primary" id="check-updates-btn" style="width: 100%; justify-content: center;">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      d="M4 4V9H4.58152M19.9381 11C19.446 7.05369 16.0796 4 12 4C8.64262 4 5.76833 6.06817 4.58152 9M4.58152 9H9M20 20V15H15M4 13C4.49204 16.9463 7.85844 20 12 20C15.3574 20 18.2317 17.9318 19.4185 15M19.4185 15H14.5"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  Check for Updates
+                </button>
+              </div>
+            </div>
 
-    <!-- History Tab -->
-    <section id="history-tab" class="tab-content">
-      <div class="card">
-        <h2 class="card-title">Scan History</h2>
-        <div class="table-container">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Process</th>
-                <th>Hash</th>
-                <th>Rating</th>
-                <th>Detections</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="history-table-body">
-              <tr>
-                <td colspan="6" class="loading-cell">
-                  <p>No scan history available</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Settings Modal -->
-  <div id="settings-modal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Settings</h2>
-        <button class="modal-close" id="settings-close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="settings-section">
-          <h3>VirusTotal API Configuration</h3>
-          <div class="form-group">
-            <label for="api-key-input">API Key</label>
-            <input type="password" id="api-key-input" class="form-input" placeholder="Enter your VirusTotal API key">
-            <p class="form-hint">Get your free API key from <a href="https://www.virustotal.com/gui/join-us"
-                target="_blank">virustotal.com</a></p>
+            <!-- Developer Info -->
+            <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+              <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                <div
+                  style="width: 50px; height: 50px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; color: white;">
+                  LH</div>
+                <div>
+                  <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">Limon Hassan</h3>
+                  <p style="font-size: 0.8rem; color: var(--text-tertiary);">Lead Developer</p>
+                </div>
+              </div>
+              <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Passionate about creating secure, efficient, and user-friendly software solutions.
+              </p>
+              <a href="https://github.com/limonhassan606" target="_blank" class="btn-secondary"
+                style="width: 100%; justify-content: center;">
+                View GitHub Profile
+              </a>
+            </div>
           </div>
         </div>
+      </section>
+    </main>
 
-        <div class="settings-section">
-          <h3>Scan Options</h3>
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="auto-scan-checkbox">
-              <span>Enable automatic scanning for new processes</span>
-            </label>
-          </div>
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <button class="modal-close" id="settings-close-btn">&times;</button>
         </div>
+        <div class="modal-body">
+          <div class="settings-section">
+            <h3>VirusTotal API Configuration</h3>
+            <div class="form-group">
+              <label for="api-key-input">API Key</label>
+              <input type="password" id="api-key-input" class="form-input" placeholder="Enter your VirusTotal API key">
+              <p class="form-hint">Get your free API key from <a href="https://www.virustotal.com/gui/join-us"
+                  target="_blank">virustotal.com</a></p>
+            </div>
+          </div>
 
-        <div class="modal-footer">
-          <button class="btn-secondary" id="settings-cancel-btn">Cancel</button>
-          <button class="btn-primary" id="settings-save-btn">Save Settings</button>
+          <div class="settings-section">
+            <h3>Scan Options</h3>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="auto-scan-checkbox">
+                <span>Enable automatic scanning for new processes</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn-secondary" id="settings-cancel-btn">Cancel</button>
+            <button class="btn-primary" id="settings-save-btn">Save Settings</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script src="js/app.js"></script>
+    <script src="js/app.js"></script>
 </body>
 
 </html>
