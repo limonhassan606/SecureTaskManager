@@ -1,154 +1,301 @@
 // ===== STATE MANAGEMENT =====
 const state = {
-    processes: [],
-    filteredProcesses: [],
-    scanHistory: [],
-    settings: {},
-    currentSort: { column: 'name', direction: 'asc' },
-    refreshInterval: null,
-    scanQueue: []
+  processes: [], // The raw list of processes from backend
+  processMetadata: new Map(), // Stores scan results/ratings keyed by PID (or Path)
+  filteredProcesses: [],
+  scanHistory: [],
+  scanQueue: [],
+  settings: {},
+  currentSort: { column: 'name', direction: 'asc' },
+  refreshInterval: null,
+  activeFilters: new Set(['all']) // Default to showing all
 };
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('SecureTask Manager initialized');
+  console.log('SecureTask Manager initialized');
 
-    // Load settings
-    await loadSettings();
+  // Load settings
+  await loadSettings();
 
-    // Setup event listeners
-    setupEventListeners();
+  // Setup event listeners
+  setupEventListeners();
 
-    // Load initial data
-    await refreshProcesses();
-    await loadScanHistory();
+  // Setup IPC listeners
+  setupIPCListeners();
 
-    // Start auto-refresh
-    startAutoRefresh();
+  // Load initial data
+  await refreshProcesses();
+  await loadScanHistory();
+  await updateScanQueue();
 
-    // Show dashboard by default
-    switchTab('dashboard');
+  // Start auto-refresh
+  startAutoRefresh();
+
+  // Show dashboard by default
+  switchTab('dashboard');
 });
 
 // ===== EVENT LISTENERS =====
 function setupEventListeners() {
-    // Tab navigation
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            switchTab(tab);
-        });
+  // Tab navigation
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      switchTab(tab);
     });
+  });
 
-    // Settings button
-    document.getElementById('settings-btn').addEventListener('click', openSettings);
-    document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
-    document.getElementById('settings-cancel-btn').addEventListener('click', closeSettings);
-    document.getElementById('settings-save-btn').addEventListener('click', saveSettings);
+  // Settings button
+  document.getElementById('settings-btn').addEventListener('click', openSettings);
+  document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
+  document.getElementById('settings-cancel-btn').addEventListener('click', closeSettings);
+  document.getElementById('settings-save-btn').addEventListener('click', saveSettings);
 
-    // Process modal
-    document.getElementById('modal-close-btn').addEventListener('click', closeProcessModal);
+  // Process modal
+  document.getElementById('modal-close-btn').addEventListener('click', closeProcessModal);
 
-    // Refresh buttons
-    document.getElementById('refresh-btn').addEventListener('click', refreshProcesses);
-    document.getElementById('refresh-processes-btn').addEventListener('click', refreshProcesses);
-    document.getElementById('scan-all-btn').addEventListener('click', scanAllProcesses);
+  // Refresh buttons
+  document.getElementById('refresh-btn').addEventListener('click', refreshProcesses);
+  document.getElementById('refresh-processes-btn').addEventListener('click', refreshProcesses);
+  document.getElementById('scan-all-btn').addEventListener('click', scanAllProcesses);
 
-    // Search
-    document.getElementById('search-input').addEventListener('input', handleSearch);
+  // Search
+  document.getElementById('search-input').addEventListener('input', handleSearch);
 
-    // Table sorting
-    document.querySelectorAll('.process-table th[data-sort]').forEach(th => {
-        th.addEventListener('click', () => {
-            const column = th.dataset.sort;
-            handleSort(column);
-        });
+  // Filter Select
+  document.getElementById('filter-select').addEventListener('change', (e) => toggleFilter(e.target.value));
+
+  // Table sorting
+  document.querySelectorAll('.process-table th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const column = th.dataset.sort;
+      handleSort(column);
     });
+  });
 
-    // Close modals on outside click
-    document.getElementById('process-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'process-modal') {
-            closeProcessModal();
-        }
-    });
+  // Close modals on outside click
+  document.getElementById('process-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'process-modal') {
+      closeProcessModal();
+    }
+  });
 
-    document.getElementById('settings-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'settings-modal') {
-            closeSettings();
-        }
-    });
+  document.getElementById('settings-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'settings-modal') {
+      closeSettings();
+    }
+  });
+}
+
+function setupIPCListeners() {
+  // Listen for scan completion
+  window.electronAPI.onScanComplete((data) => {
+    // data = { hash, pid, result }
+    console.log('Scan complete:', data);
+
+    // Update metadata map
+    // We use PID to find currently running process, but really we should map by Hash if possible, 
+    // or path. For now, let's update by PID if provided, and also find by hash.
+
+    // Update history
+    loadScanHistory();
+
+    // Update active process list if it matches
+    if (data.pid) {
+      const existingMeta = state.processMetadata.get(data.pid) || {};
+      state.processMetadata.set(data.pid, {
+        ...existingMeta,
+        ...data.result,
+        scanStatus: data.result.status
+      });
+    }
+
+    // Refresh UI
+    refreshProcesses(); // Logic to merge/filter will run
+    viewProcessDetails(data.pid); // Re-open details if open
+  });
+
+  // Listen for queue updates
+  window.electronAPI.onQueueUpdate((queue) => {
+    state.scanQueue = queue;
+    updateQueueTable();
+  });
 }
 
 // ===== TAB SWITCHING =====
 function switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tabName);
-    });
+  // Update tab buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
 
-    // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.toggle('active', content.id === `${tabName}-tab`);
-    });
+  // Update tab content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.toggle('active', content.id === `${tabName}-tab`);
+  });
 
-    // Load data for specific tabs
-    if (tabName === 'history') {
-        loadScanHistory();
-    } else if (tabName === 'processes') {
-        refreshProcesses();
-    }
+  // Load data for specific tabs
+  if (tabName === 'history') {
+    loadScanHistory();
+  } else if (tabName === 'queue') {
+    updateScanQueue();
+  } else if (tabName === 'processes') {
+    refreshProcesses();
+  }
 }
 
 // ===== PROCESS MANAGEMENT =====
 async function refreshProcesses() {
-    try {
-        const result = await window.electronAPI.getProcesses();
+  try {
+    const result = await window.electronAPI.getProcesses();
 
-        if (result.error) {
-            console.error('Error loading processes:', result.error);
-            return;
-        }
-
-        state.processes = result.processes || [];
-        state.filteredProcesses = [...state.processes];
-
-        // Update UI
-        updateProcessTable();
-        updateDashboardStats();
-
-    } catch (error) {
-        console.error('Error refreshing processes:', error);
+    if (result.error) {
+      console.error('Error loading processes:', result.error);
+      return;
     }
+
+    const newProcesses = result.processes || [];
+
+    // 1. Build Scan History Map for fast lookup
+    const historyMap = new Map();
+    if (state.scanHistory && state.scanHistory.length > 0) {
+      state.scanHistory.forEach(scan => {
+        // Use the most recent scan for a given hash
+        if (scan.hash && !historyMap.has(scan.hash)) {
+          historyMap.set(scan.hash, scan);
+        }
+      });
+    }
+
+    // 2. Merge with existing metadata AND history matching
+    state.processes = newProcesses.map(proc => {
+      // Priority 1: Current session metadata (most up to date)
+      const meta = state.processMetadata.get(proc.pid);
+      if (meta) {
+        return { ...proc, ...meta };
+      }
+
+      // Priority 2: Historical scan data (if we have a hash match)
+      if (proc.hash) {
+        const historyMatch = historyMap.get(proc.hash);
+        if (historyMatch) {
+          // Populate metadata so we don't have to look it up again
+          const historyData = {
+            rating: historyMatch.rating,
+            scanStatus: historyMatch.rating, // approximate status
+            detections: historyMatch.detections,
+            totalEngines: historyMatch.totalEngines
+          };
+          state.processMetadata.set(proc.pid, historyData);
+          return { ...proc, ...historyData };
+        }
+      }
+
+      return proc;
+    });
+
+    // Apply filters
+    applyFilters();
+
+    // Update Dashboard Stats always from full list
+    updateDashboardStats();
+
+  } catch (error) {
+    console.error('Error refreshing processes:', error);
+  }
+}
+
+// ===== FILTERING =====
+function toggleFilter(filterValue) {
+  state.activeFilters.clear();
+  state.activeFilters.add(filterValue);
+
+  // Apply filters
+  applyFilters();
+}
+
+function handleSearch(e) {
+  applyFilters();
+}
+
+function applyFilters() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+
+  state.filteredProcesses = state.processes.filter(proc => {
+    // 1. Text Search Filter
+    const matchesSearch = !query ||
+      (proc.name && proc.name.toLowerCase().includes(query)) ||
+      (proc.path && proc.path.toLowerCase().includes(query)) ||
+      (proc.pid && proc.pid.toString().includes(query));
+
+    if (!matchesSearch) return false;
+
+    // 2. Status/Type Filter
+    if (state.activeFilters.has('all')) return true;
+
+    const status = proc.scanStatus || 'not_scanned';
+
+    // Map loose statuses if needed
+    if (state.activeFilters.has('safe') && (status === 'safe' || status === 'whitelisted')) return true;
+    if (state.activeFilters.has('suspicious') && (status === 'suspicious' || status === 'low_risk' || status === 'unknown')) return true;
+    if (state.activeFilters.has('malicious') && status === 'malicious') return true;
+    if (state.activeFilters.has('not_scanned') && status === 'not_scanned') return true;
+
+    return false;
+  });
+
+  // Re-apply current sort
+  const { column, direction } = state.currentSort;
+  if (column) {
+    state.filteredProcesses.sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  updateProcessTable();
 }
 
 function updateProcessTable() {
-    const tbody = document.getElementById('process-table-body');
+  const tbody = document.getElementById('process-table-body');
+  const tableContainer = document.querySelector('.table-container');
 
-    if (state.filteredProcesses.length === 0) {
-        tbody.innerHTML = `
+  if (state.filteredProcesses.length === 0) {
+    tbody.innerHTML = `
       <tr>
         <td colspan="7" class="loading-cell">
           <p>No processes found</p>
         </td>
       </tr>
     `;
-        return;
-    }
+    return;
+  }
 
-    tbody.innerHTML = state.filteredProcesses.map(proc => `
+  tbody.innerHTML = state.filteredProcesses.map(proc => `
     <tr>
       <td>
         <span class="status-badge ${getStatusClass(proc.scanStatus)}">
           ${getStatusText(proc.scanStatus)}
         </span>
       </td>
-      <td>${escapeHtml(proc.name)}</td>
+      <td>
+        <div class="process-name">${escapeHtml(proc.name)}</div>
+        ${!proc.hash ? '<div class="process-subtitle">Calculating hash...</div>' : ''}
+      </td>
       <td>${proc.pid}</td>
       <td>${proc.cpu.toFixed(1)}%</td>
       <td>${proc.memMB} MB</td>
       <td title="${escapeHtml(proc.path)}">${truncatePath(proc.path)}</td>
       <td>
-        <button class="table-action-btn" onclick="scanProcess(${proc.pid})">
+        <button class="table-action-btn" onclick="scanProcess(${proc.pid})" ${!proc.hash ? 'disabled style="opacity: 0.5; cursor: not-allowed;" title="Wait for hash calculation"' : ''}>
           Scan
         </button>
         <button class="table-action-btn" onclick="viewProcessDetails(${proc.pid})">
@@ -163,126 +310,131 @@ function updateProcessTable() {
 }
 
 function updateDashboardStats() {
-    // Count processes by status
-    const stats = {
-        safe: 0,
-        suspicious: 0,
-        malicious: 0,
-        unknown: 0,
-        total: state.processes.length
-    };
+  // Count processes by status
+  const stats = {
+    safe: 0,
+    suspicious: 0,
+    malicious: 0,
+    unknown: 0,
+    total: state.processes.length
+  };
 
-    state.processes.forEach(proc => {
-        if (proc.rating === 'safe') stats.safe++;
-        else if (proc.rating === 'suspicious' || proc.rating === 'low_risk') stats.suspicious++;
-        else if (proc.rating === 'malicious') stats.malicious++;
-        else stats.unknown++;
-    });
+  state.processes.forEach(proc => {
+    if (proc.rating === 'safe') stats.safe++;
+    else if (proc.rating === 'suspicious' || proc.rating === 'low_risk') stats.suspicious++;
+    else if (proc.rating === 'malicious') stats.malicious++;
+    else stats.unknown++;
+  });
 
-    // Update stat cards
-    document.getElementById('safe-count').textContent = stats.safe;
-    document.getElementById('suspicious-count').textContent = stats.suspicious;
-    document.getElementById('malicious-count').textContent = stats.malicious;
-    document.getElementById('unknown-count').textContent = stats.unknown;
-    document.getElementById('total-processes').textContent = stats.total;
+  // Update stat cards
+  document.getElementById('safe-count').textContent = stats.safe;
+  document.getElementById('suspicious-count').textContent = stats.suspicious;
+  document.getElementById('malicious-count').textContent = stats.malicious;
+  document.getElementById('unknown-count').textContent = stats.unknown;
+  document.getElementById('total-processes').textContent = stats.total;
 }
 
 async function scanProcess(pid) {
-    const process = state.processes.find(p => p.pid === pid);
-    if (!process) return;
+  const process = state.processes.find(p => p.pid === pid);
+  if (!process) return;
 
-    if (!process.hash) {
-        alert('Cannot scan this process - no file hash available');
-        return;
+  if (!process.hash) {
+    alert('File hash is still being calculated. Please try again in a moment.');
+    return;
+  }
+
+  try {
+    const result = await window.electronAPI.scanProcess(process);
+
+    if (result.error) {
+      alert(`Scan error: ${result.error}`);
+      return;
     }
 
-    try {
-        // Show loading state
-        const result = await window.electronAPI.scanProcess(process);
-
-        if (result.error) {
-            alert(`Scan error: ${result.error}`);
-            return;
-        }
-
-        if (result.status === 'not_configured') {
-            alert('Please configure your VirusTotal API key in Settings');
-            openSettings();
-            return;
-        }
-
-        // Update process with scan result
-        process.scanStatus = result.status;
-        process.rating = result.rating;
-        process.detections = result.detections;
-        process.totalEngines = result.totalEngines;
-        process.scanResult = result;
-
-        // Refresh UI
-        updateProcessTable();
-        updateDashboardStats();
-
-        // Show details
-        viewProcessDetails(pid);
-
-    } catch (error) {
-        console.error('Error scanning process:', error);
-        alert('Failed to scan process');
+    if (result.status === 'queued') {
+      alert(`Process added to scan queue. Position: ${result.position}`);
+      return;
     }
+
+    if (result.status === 'not_configured') {
+      alert('Please configure your VirusTotal API key in Settings');
+      openSettings();
+      return;
+    }
+
+    // Direct result (cached or whitelisted)
+    state.processMetadata.set(pid, { ...result, scanStatus: result.status });
+    refreshProcesses();
+    viewProcessDetails(pid);
+
+  } catch (error) {
+    console.error('Error scanning process:', error);
+    alert('Failed to scan process');
+  }
 }
 
 async function scanAllProcesses() {
-    if (!confirm('This will scan all processes with file hashes. This may take a while due to API rate limits. Continue?')) {
-        return;
+  if (!confirm('This will scan all running processes that have calculated hashes. Continue?')) {
+    return;
+  }
+
+  const processesToScan = state.processes.filter(p =>
+    p.hash &&
+    (!p.scanStatus || p.scanStatus === 'not_scanned')
+  );
+
+  const pendingHashCount = state.processes.filter(p => !p.hash).length;
+
+  if (processesToScan.length === 0) {
+    if (pendingHashCount > 0) {
+      alert(`No processes ready to scan yet. ${pendingHashCount} processes are still calculating hashes. Please wait a moment and try again.`);
+    } else {
+      alert('All testable processes have already been scanned.');
     }
+    return;
+  }
 
-    const processesToScan = state.processes.filter(p => p.hash && p.scanStatus === 'not_scanned');
+  alert(`Queued ${processesToScan.length} processes for scanning. ${pendingHashCount > 0 ? `(Skipped ${pendingHashCount} processes pending hash calculation)` : ''}`);
 
-    if (processesToScan.length === 0) {
-        alert('No processes to scan');
-        return;
-    }
-
-    alert(`Queued ${processesToScan.length} processes for scanning. This will take approximately ${Math.ceil(processesToScan.length * 15 / 60)} minutes due to API rate limits.`);
-
-    // Scan processes one by one
-    for (const proc of processesToScan) {
-        await scanProcess(proc.pid);
-        // Wait to respect rate limits (handled by backend)
-    }
+  let count = 0;
+  for (const proc of processesToScan) {
+    window.electronAPI.scanProcess(proc);
+    count++;
+    if (count % 20 === 0) await new Promise(r => setTimeout(r, 100));
+  }
 }
 
 async function killProcess(pid) {
-    if (!confirm(`Are you sure you want to terminate process ${pid}?`)) {
-        return;
-    }
+  if (!confirm(`Are you sure you want to terminate process ${pid}?`)) {
+    return;
+  }
 
-    try {
-        const result = await window.electronAPI.killProcess(pid);
+  try {
+    const result = await window.electronAPI.killProcess(pid);
 
-        if (result.success) {
-            alert('Process terminated successfully');
-            await refreshProcesses();
-        } else {
-            alert(`Failed to terminate process: ${result.error}`);
-        }
-    } catch (error) {
-        console.error('Error killing process:', error);
-        alert('Failed to terminate process');
+    if (result.success) {
+      alert('Process terminated successfully');
+      await refreshProcesses();
+    } else {
+      alert(`Failed to terminate process: ${result.error}`);
     }
+  } catch (error) {
+    console.error('Error killing process:', error);
+    alert('Failed to terminate process');
+  }
 }
 
 function viewProcessDetails(pid) {
-    const process = state.processes.find(p => p.pid === pid);
-    if (!process) return;
+  const process = state.processes.find(p => p.pid === pid);
+  if (!process) return;
 
-    const modal = document.getElementById('process-modal');
-    const modalBody = document.getElementById('modal-body');
-    const modalTitle = document.getElementById('modal-title');
+  const modal = document.getElementById('process-modal');
+  const modalBody = document.getElementById('modal-body');
+  const modalTitle = document.getElementById('modal-title');
 
-    modalTitle.textContent = `Process Details - ${process.name}`;
+  modalTitle.textContent = `Process Details - ${process.name}`;
 
-    let detailsHtml = `
+  let detailsHtml = `
     <div class="system-info">
       <div class="info-row">
         <span class="info-label">Process Name:</span>
@@ -314,16 +466,15 @@ function viewProcessDetails(pid) {
       </div>
       <div class="info-row">
         <span class="info-label">File Hash (SHA-256):</span>
-        <span class="info-value" style="word-break: break-all; font-family: monospace; font-size: 0.7rem;">${process.hash || 'N/A'}</span>
+        <span class="info-value" style="word-break: break-all; font-family: monospace; font-size: 0.7rem;">${process.hash || 'Calculating...'}</span>
       </div>
     </div>
   `;
 
-    // Add scan results if available
-    if (process.scanResult) {
-        const result = process.scanResult;
+  if (process.rating || process.scanResult) {
+    const result = process.scanResult || process; // Support both structures
 
-        detailsHtml += `
+    detailsHtml += `
       <div style="margin-top: 1.5rem;">
         <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-primary);">
           VirusTotal Analysis
@@ -337,61 +488,19 @@ function viewProcessDetails(pid) {
             <span class="info-label">Detections:</span>
             <span class="info-value">${result.detections || 0} / ${result.totalEngines || 0} engines</span>
           </div>
-          ${result.reputation !== undefined ? `
-          <div class="info-row">
-            <span class="info-label">Reputation:</span>
-            <span class="info-value">${result.reputation}</span>
-          </div>
-          ` : ''}
-          ${result.lastAnalysisDate ? `
-          <div class="info-row">
-            <span class="info-label">Last Analysis:</span>
-            <span class="info-value">${new Date(result.lastAnalysisDate * 1000).toLocaleString()}</span>
-          </div>
-          ` : ''}
         </div>
-
-        ${result.vendors && result.vendors.length > 0 ? `
-        <div style="margin-top: 1rem;">
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary);">
-            Vendor Detections:
-          </h4>
-          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-            ${result.vendors.map(v => `
-              <span class="status-badge status-malicious" style="font-size: 0.7rem;">
-                ${escapeHtml(v.name)}: ${escapeHtml(v.result)}
-              </span>
-            `).join('')}
-          </div>
-        </div>
-        ` : ''}
-
-        ${result.behavior && result.behavior.length > 0 ? `
-        <div style="margin-top: 1rem;">
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary);">
-            Behavior Tags:
-          </h4>
-          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-            ${result.behavior.map(b => `
-              <span class="status-badge status-unknown" style="font-size: 0.7rem;">
-                ${escapeHtml(b)}
-              </span>
-            `).join('')}
-          </div>
-        </div>
-        ` : ''}
 
         ${process.hash ? `
         <div style="margin-top: 1rem;">
           <a href="https://www.virustotal.com/gui/file/${process.hash}" target="_blank" class="btn-primary" style="display: inline-flex; text-decoration: none;">
-            View Full Report on VirusTotal
+            View Full Report
           </a>
         </div>
         ` : ''}
       </div>
     `;
-    } else {
-        detailsHtml += `
+  } else {
+    detailsHtml += `
       <div style="margin-top: 1.5rem; text-align: center;">
         <p style="color: var(--text-tertiary); margin-bottom: 1rem;">
           This process has not been scanned yet
@@ -401,42 +510,80 @@ function viewProcessDetails(pid) {
         </button>
       </div>
     `;
-    }
+  }
 
-    modalBody.innerHTML = detailsHtml;
-    modal.classList.add('active');
+  modalBody.innerHTML = detailsHtml;
+  modal.classList.add('active');
 }
 
 function closeProcessModal() {
-    document.getElementById('process-modal').classList.remove('active');
+  document.getElementById('process-modal').classList.remove('active');
 }
+
+// ===== QUEUE MANAGEMENT =====
+async function updateScanQueue() {
+  try {
+    const queue = await window.electronAPI.getScanQueue();
+    state.scanQueue = queue || [];
+    updateQueueTable();
+  } catch (error) {
+    console.error('Error updating scan queue:', error);
+  }
+}
+
+function updateQueueTable() {
+  const tbody = document.getElementById('queue-table-body');
+  if (!tbody) return;
+
+  if (state.scanQueue.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="loading-cell">
+          <p>Queue is empty</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = state.scanQueue.map((item, index) => `
+    <tr>
+      <td>${index === 0 ? '<span class="status-badge status-suspicious">Processing</span>' : '<span class="status-badge status-unknown">Queued</span>'}</td>
+      <td>${escapeHtml(item.name || item.processName)}</td>
+      <td style="font-family: monospace; font-size: 0.7rem;">${item.hash ? item.hash.substring(0, 16) + '...' : 'N/A'}</td>
+      <td>${new Date(item.timestamp).toLocaleTimeString()}</td>
+    </tr>
+  `).join('');
+}
+
 
 // ===== SCAN HISTORY =====
 async function loadScanHistory() {
-    try {
-        const history = await window.electronAPI.getScanHistory();
-        state.scanHistory = history || [];
-        updateHistoryTable();
-    } catch (error) {
-        console.error('Error loading scan history:', error);
-    }
+  try {
+    const history = await window.electronAPI.getScanHistory();
+    state.scanHistory = history || [];
+    updateHistoryTable();
+  } catch (error) {
+    console.error('Error loading scan history:', error);
+  }
 }
 
 function updateHistoryTable() {
-    const tbody = document.getElementById('history-table-body');
+  const tbody = document.getElementById('history-table-body');
+  if (!tbody) return;
 
-    if (state.scanHistory.length === 0) {
-        tbody.innerHTML = `
+  if (state.scanHistory.length === 0) {
+    tbody.innerHTML = `
       <tr>
         <td colspan="6" class="loading-cell">
           <p>No scan history available</p>
         </td>
       </tr>
     `;
-        return;
-    }
+    return;
+  }
 
-    tbody.innerHTML = state.scanHistory.map(scan => `
+  tbody.innerHTML = state.scanHistory.map(scan => `
     <tr>
       <td>${new Date(scan.scanDate).toLocaleString()}</td>
       <td>${escapeHtml(scan.processName)}</td>
@@ -460,156 +607,143 @@ function updateHistoryTable() {
 
 // ===== SETTINGS =====
 async function loadSettings() {
-    try {
-        state.settings = await window.electronAPI.getSettings();
-        console.log('Settings loaded:', state.settings);
-    } catch (error) {
-        console.error('Error loading settings:', error);
-    }
+  try {
+    state.settings = await window.electronAPI.getSettings();
+  } catch (error) {
+    console.error('Error loading settings:', error);
+  }
 }
 
 function openSettings() {
-    const modal = document.getElementById('settings-modal');
-    const apiKeyInput = document.getElementById('api-key-input');
-    const autoScanCheckbox = document.getElementById('auto-scan-checkbox');
+  const modal = document.getElementById('settings-modal');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const autoScanCheckbox = document.getElementById('auto-scan-checkbox');
 
-    apiKeyInput.value = state.settings.virusTotalApiKey || '';
-    autoScanCheckbox.checked = state.settings.autoScan || false;
+  apiKeyInput.value = state.settings.virusTotalApiKey || '';
+  autoScanCheckbox.checked = state.settings.autoScan || false;
 
-    modal.classList.add('active');
+  modal.classList.add('active');
 }
 
 function closeSettings() {
-    document.getElementById('settings-modal').classList.remove('active');
+  document.getElementById('settings-modal').classList.remove('active');
 }
 
 async function saveSettings() {
-    const apiKey = document.getElementById('api-key-input').value.trim();
-    const autoScan = document.getElementById('auto-scan-checkbox').checked;
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  const autoScan = document.getElementById('auto-scan-checkbox').checked;
 
-    try {
-        await window.electronAPI.saveSettings({
-            virusTotalApiKey: apiKey,
-            autoScan: autoScan
-        });
+  try {
+    await window.electronAPI.saveSettings({
+      virusTotalApiKey: apiKey,
+      autoScan: autoScan
+    });
 
-        state.settings.virusTotalApiKey = apiKey;
-        state.settings.autoScan = autoScan;
+    state.settings.virusTotalApiKey = apiKey;
+    state.settings.autoScan = autoScan;
 
-        alert('Settings saved successfully!');
-        closeSettings();
-    } catch (error) {
-        console.error('Error saving settings:', error);
-        alert('Failed to save settings');
-    }
-}
-
-// ===== SEARCH & FILTER =====
-function handleSearch(e) {
-    const query = e.target.value.toLowerCase();
-
-    if (!query) {
-        state.filteredProcesses = [...state.processes];
-    } else {
-        state.filteredProcesses = state.processes.filter(proc =>
-            proc.name.toLowerCase().includes(query) ||
-            proc.path.toLowerCase().includes(query) ||
-            proc.pid.toString().includes(query)
-        );
-    }
-
-    updateProcessTable();
+    alert('Settings saved successfully!');
+    closeSettings();
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    alert('Failed to save settings');
+  }
 }
 
 // ===== SORTING =====
 function handleSort(column) {
-    if (state.currentSort.column === column) {
-        state.currentSort.direction = state.currentSort.direction === 'asc' ? 'desc' : 'asc';
-    } else {
-        state.currentSort.column = column;
-        state.currentSort.direction = 'asc';
+  if (state.currentSort.column === column) {
+    state.currentSort.direction = state.currentSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.currentSort.column = column;
+    state.currentSort.direction = 'asc';
+  }
+
+  state.filteredProcesses.sort((a, b) => {
+    let aVal = a[column];
+    let bVal = b[column];
+
+    // Handle different data types
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = bVal.toLowerCase();
     }
 
-    state.filteredProcesses.sort((a, b) => {
-        let aVal = a[column];
-        let bVal = b[column];
+    if (aVal < bVal) return state.currentSort.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return state.currentSort.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
-        // Handle different data types
-        if (typeof aVal === 'string') {
-            aVal = aVal.toLowerCase();
-            bVal = bVal.toLowerCase();
-        }
-
-        if (aVal < bVal) return state.currentSort.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return state.currentSort.direction === 'asc' ? 1 : -1;
-        return 0;
-    });
-
-    updateProcessTable();
+  updateProcessTable();
 }
 
 // ===== AUTO REFRESH =====
 function startAutoRefresh() {
-    // Refresh every 5 seconds
-    state.refreshInterval = setInterval(async () => {
-        await refreshProcesses();
-        updateSystemStats();
-    }, 5000);
+  // Refresh every 5 seconds
+  state.refreshInterval = setInterval(async () => {
+    await refreshProcesses();
+    await updateSystemStats();
+  }, 5000);
 }
 
 async function updateSystemStats() {
-    // Update header stats (CPU and Memory)
-    if (state.processes.length > 0) {
-        const totalCpu = state.processes.reduce((sum, p) => sum + p.cpu, 0);
-        const totalMem = state.processes.reduce((sum, p) => sum + parseFloat(p.memMB), 0);
+  try {
+    const stats = await window.electronAPI.getSystemStats();
 
-        document.getElementById('cpu-usage').textContent = `${totalCpu.toFixed(1)}%`;
-        document.getElementById('mem-usage').textContent = `${(totalMem / 1024).toFixed(1)} GB`;
+    if (stats && !stats.error) {
+      document.getElementById('cpu-usage').textContent = `${stats.load.currentLoad}%`;
+      document.getElementById('mem-usage').textContent = `${stats.memory.usedPercent}%`;
 
-        document.getElementById('dashboard-cpu').textContent = `${totalCpu.toFixed(1)}%`;
-        document.getElementById('dashboard-mem').textContent = `${(totalMem / 1024).toFixed(1)} GB`;
+      document.getElementById('dashboard-cpu').textContent = `${stats.load.currentLoad}%`;
+      document.getElementById('dashboard-mem').textContent = `${stats.memory.used} GB / ${stats.memory.total} GB`;
     }
+  } catch (err) {
+    // Fallback or ignore
+  }
 }
 
 // ===== UTILITY FUNCTIONS =====
 function getStatusClass(status) {
-    switch (status) {
-        case 'safe':
-        case 'whitelisted':
-            return 'status-safe';
-        case 'suspicious':
-        case 'low_risk':
-            return 'status-suspicious';
-        case 'malicious':
-            return 'status-malicious';
-        default:
-            return 'status-unknown';
-    }
+  switch (status) {
+    case 'safe':
+    case 'whitelisted':
+      return 'status-safe';
+    case 'suspicious':
+    case 'low_risk':
+      return 'status-suspicious';
+    case 'malicious':
+      return 'status-malicious';
+    case 'queued':
+      return 'status-suspicious';
+    default:
+      return 'status-unknown';
+  }
 }
 
 function getStatusText(status) {
-    switch (status) {
-        case 'safe': return 'Safe';
-        case 'whitelisted': return 'Whitelisted';
-        case 'suspicious': return 'Suspicious';
-        case 'low_risk': return 'Low Risk';
-        case 'malicious': return 'Malicious';
-        case 'not_scanned': return 'Not Scanned';
-        case 'unknown': return 'Unknown';
-        default: return 'Unknown';
-    }
+  switch (status) {
+    case 'safe': return 'Safe';
+    case 'whitelisted': return 'Whitelisted';
+    case 'suspicious': return 'Suspicious';
+    case 'low_risk': return 'Low Risk';
+    case 'malicious': return 'Malicious';
+    case 'not_scanned': return 'Not Scanned';
+    case 'queued': return 'Queued';
+    case 'unknown': return 'Unknown';
+    default: return 'Unknown';
+  }
 }
 
 function truncatePath(path, maxLength = 50) {
-    if (!path || path.length <= maxLength) return path;
-    return '...' + path.substring(path.length - maxLength);
+  if (!path || path.length <= maxLength) return path;
+  return '...' + path.substring(path.length - maxLength);
 }
 
 function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Make functions globally accessible

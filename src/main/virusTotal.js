@@ -1,5 +1,6 @@
 const axios = require('axios');
 const database = require('./database');
+const { BrowserWindow } = require('electron');
 
 class VirusTotalScanner {
     constructor() {
@@ -9,6 +10,9 @@ class VirusTotalScanner {
         this.lastRequestTime = 0;
         this.scanQueue = [];
         this.isProcessingQueue = false;
+
+        // Start processing queue automatically
+        this.startQueueProcessor();
     }
 
     /**
@@ -17,6 +21,103 @@ class VirusTotalScanner {
     async initialize() {
         const settings = await database.getSettings();
         this.apiKey = settings?.virusTotalApiKey || null;
+    }
+
+    /**
+     * Start the background queue processor
+     */
+    startQueueProcessor() {
+        setInterval(() => {
+            if (this.scanQueue.length > 0 && !this.isProcessingQueue) {
+                this.processQueue();
+            }
+        }, 1000);
+    }
+
+    /**
+     * Add process to scan queue
+     */
+    addToQueue(processData) {
+        // Check if already in queue
+        if (!this.scanQueue.find(p => p.hash === processData.hash)) {
+            this.scanQueue.push({
+                ...processData,
+                addedResult: 'queued',
+                timestamp: Date.now()
+            });
+            this.broadcastQueueUpdate();
+        }
+        return { status: 'queued', position: this.scanQueue.length };
+    }
+
+    /**
+     * Get current queue
+     */
+    getQueue() {
+        return this.scanQueue;
+    }
+
+    /**
+     * Remove from queue
+     */
+    removeFromQueue(hash) {
+        this.scanQueue = this.scanQueue.filter(item => item.hash !== hash);
+        this.broadcastQueueUpdate();
+    }
+
+    /**
+     * Broadcast queue update to renderer
+     */
+    broadcastQueueUpdate() {
+        const windows = BrowserWindow.getAllWindows();
+        if (windows.length > 0) {
+            windows[0].webContents.send('scan-queue-update', this.scanQueue);
+        }
+    }
+
+    /**
+     * Process the scan queue
+     */
+    async processQueue() {
+        if (this.isProcessingQueue || this.scanQueue.length === 0) return;
+
+        this.isProcessingQueue = true;
+
+        try {
+            const item = this.scanQueue[0]; // Peek
+
+            // Check if we need to wait for rate limit
+            const now = Date.now();
+            const timeSinceLastRequest = now - this.lastRequestTime;
+
+            if (timeSinceLastRequest < this.rateLimitDelay) {
+                // Not ready yet
+                this.isProcessingQueue = false;
+                return;
+            }
+
+            // Remove from queue for processing
+            this.scanQueue.shift();
+            this.broadcastQueueUpdate();
+
+            // Perform scan
+            const result = await this.performScan(item);
+
+            // Broadcast result
+            const windows = BrowserWindow.getAllWindows();
+            if (windows.length > 0) {
+                windows[0].webContents.send('scan-complete', {
+                    hash: item.hash,
+                    pid: item.pid,
+                    result
+                });
+            }
+
+        } catch (error) {
+            console.error('Error processing queue item:', error);
+        } finally {
+            this.isProcessingQueue = false;
+        }
     }
 
     /**
@@ -34,24 +135,9 @@ class VirusTotalScanner {
     }
 
     /**
-     * Wait for rate limit
+     * Scan a process (DIRECT or via Queue - internal helper)
      */
-    async waitForRateLimit() {
-        const now = Date.now();
-        const timeSinceLastRequest = now - this.lastRequestTime;
-
-        if (timeSinceLastRequest < this.rateLimitDelay) {
-            const waitTime = this.rateLimitDelay - timeSinceLastRequest;
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-
-        this.lastRequestTime = Date.now();
-    }
-
-    /**
-     * Scan a process using VirusTotal API
-     */
-    async scanProcess(processData) {
+    async performScan(processData) {
         try {
             if (!this.isConfigured()) {
                 return {
@@ -86,8 +172,8 @@ class VirusTotalScanner {
                 };
             }
 
-            // Wait for rate limit
-            await this.waitForRateLimit();
+            // Update request time
+            this.lastRequestTime = Date.now();
 
             // Query VirusTotal
             const response = await axios.get(
@@ -139,6 +225,25 @@ class VirusTotalScanner {
                 status: 'error'
             };
         }
+    }
+
+    /**
+     * Public method to scan process (adds to queue if needed or returns immediately if cached)
+     */
+    async scanProcess(processData) {
+        // Quick check for cache/whitelist to avoid queue if possible
+        const isWhitelisted = await database.isWhitelisted(processData.hash);
+        if (isWhitelisted) {
+            return { status: 'whitelisted', rating: 'safe' };
+        }
+
+        const cached = await database.getCachedScan(processData.hash);
+        if (cached) {
+            return { ...cached, status: 'cached' };
+        }
+
+        // Add to queue
+        return this.addToQueue(processData);
     }
 
     /**

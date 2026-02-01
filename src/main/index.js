@@ -128,3 +128,21 @@ ipcMain.handle('get-cached-scan', async (event, hash) => {
     return null;
   }
 });
+
+ipcMain.handle('get-system-stats', async () => {
+  try {
+    return await processMonitor.getSystemStats();
+  } catch (error) {
+    console.error('Error getting system stats:', error);
+    return { error: error.message };
+  }
+});
+
+ipcMain.handle('get-scan-queue', async () => {
+  try {
+    return virusTotal.getQueue();
+  } catch (error) {
+    console.error('Error getting scan queue:', error);
+    return [];
+  }
+});

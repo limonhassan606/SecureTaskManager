@@ -91,7 +91,7 @@ class Database {
     /**
      * Get scan history
      */
-    async getScanHistory(limit = 100) {
+    async getScanHistory(limit = 5000) {
         try {
             const history = await this.scans
                 .find({})
